@@ -18,15 +18,25 @@ def mock_remote(http):
     )
 
 
-def test_authenticator_uses_url_provided_credentials(config, mock_remote, http):
+@pytest.fixture
+def repo():
+    return {"foo": {"url": "https://foo.bar/simple/"}}
+
+
+@pytest.fixture
+def mock_config(config, repo):
     config.merge(
         {
-            "repositories": {"foo": {"url": "https://foo.bar/simple/"}},
+            "repositories": repo,
             "http-basic": {"foo": {"username": "bar", "password": "baz"}},
         }
     )
 
-    authenticator = Authenticator(config, NullIO())
+    return config
+
+
+def test_authenticator_uses_url_provided_credentials(mock_config, mock_remote, http):
+    authenticator = Authenticator(mock_config, NullIO())
     authenticator.request("get", "https://foo001:bar002@foo.bar/files/foo-0.1.0.tar.gz")
 
     request = http.last_request()
@@ -35,16 +45,9 @@ def test_authenticator_uses_url_provided_credentials(config, mock_remote, http):
 
 
 def test_authenticator_uses_credentials_from_config_if_not_provided(
-    config, mock_remote, http
+    mock_config, mock_remote, http
 ):
-    config.merge(
-        {
-            "repositories": {"foo": {"url": "https://foo.bar/simple/"}},
-            "http-basic": {"foo": {"username": "bar", "password": "baz"}},
-        }
-    )
-
-    authenticator = Authenticator(config, NullIO())
+    authenticator = Authenticator(mock_config, NullIO())
     authenticator.request("get", "https://foo.bar/files/foo-0.1.0.tar.gz")
 
     request = http.last_request()
@@ -52,15 +55,8 @@ def test_authenticator_uses_credentials_from_config_if_not_provided(
     assert "Basic YmFyOmJheg==" == request.headers["Authorization"]
 
 
-def test_authenticator_uses_username_only_credentials(config, mock_remote, http):
-    config.merge(
-        {
-            "repositories": {"foo": {"url": "https://foo.bar/simple/"}},
-            "http-basic": {"foo": {"username": "bar", "password": "baz"}},
-        }
-    )
-
-    authenticator = Authenticator(config, NullIO())
+def test_authenticator_uses_username_only_credentials(mock_config, mock_remote, http):
+    authenticator = Authenticator(mock_config, NullIO())
     authenticator.request("get", "https://foo001@foo.bar/files/foo-0.1.0.tar.gz")
 
     request = http.last_request()
@@ -68,15 +64,8 @@ def test_authenticator_uses_username_only_credentials(config, mock_remote, http)
     assert "Basic Zm9vMDAxOg==" == request.headers["Authorization"]
 
 
-def test_authenticator_uses_password_only_credentials(config, mock_remote, http):
-    config.merge(
-        {
-            "repositories": {"foo": {"url": "https://foo.bar/simple/"}},
-            "http-basic": {"foo": {"username": "bar", "password": "baz"}},
-        }
-    )
-
-    authenticator = Authenticator(config, NullIO())
+def test_authenticator_uses_password_only_credentials(mock_config, mock_remote, http):
+    authenticator = Authenticator(mock_config, NullIO())
     authenticator.request("get", "https://:bar002@foo.bar/files/foo-0.1.0.tar.gz")
 
     request = http.last_request()
@@ -85,11 +74,11 @@ def test_authenticator_uses_password_only_credentials(config, mock_remote, http)
 
 
 def test_authenticator_uses_empty_strings_as_default_password(
-    config, mock_remote, http
+    config, mock_remote, http, repo
 ):
     config.merge(
         {
-            "repositories": {"foo": {"url": "https://foo.bar/simple/"}},
+            "repositories": repo,
             "http-basic": {"foo": {"username": "bar"}},
         }
     )
@@ -103,11 +92,11 @@ def test_authenticator_uses_empty_strings_as_default_password(
 
 
 def test_authenticator_uses_empty_strings_as_default_username(
-    config, mock_remote, http
+    config, mock_remote, http, repo
 ):
     config.merge(
         {
-            "repositories": {"foo": {"url": "https://foo.bar/simple/"}},
+            "repositories": repo,
             "http-basic": {"foo": {"username": None, "password": "bar"}},
         }
     )
@@ -191,9 +180,9 @@ def environment_repository_credentials(monkeypatch):
 
 
 def test_authenticator_uses_env_provided_credentials(
-    config, environ, mock_remote, http, environment_repository_credentials
+    config, environ, mock_remote, http, environment_repository_credentials, repo
 ):
-    config.merge({"repositories": {"foo": {"url": "https://foo.bar/simple/"}}})
+    config.merge({"repositories": repo})
 
     authenticator = Authenticator(config, NullIO())
     authenticator.request("get", "https://foo.bar/files/foo-0.1.0.tar.gz")
